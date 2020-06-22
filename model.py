@@ -1,5 +1,5 @@
-
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, BatchNormalization, Reshape, AveragePooling2D, Permute, Activation,Flatten, Dense, Input, \
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, BatchNormalization, Reshape, AveragePooling2D, \
+    Permute, Activation, Flatten, Dense, Input, \
     add, multiply
 from tensorflow.keras.layers import concatenate, Dropout
 from tensorflow.keras.models import Model
@@ -10,8 +10,6 @@ from tensorflow.keras.layers import Lambda
 import tensorflow.keras.backend as K
 from tensorflow.keras.losses import categorical_crossentropy
 import tensorflow as tf
-
-
 
 def up_and_concate(down_layer, layer, data_format='channels_first'):
     if data_format == 'channels_first':
@@ -30,8 +28,6 @@ def up_and_concate(down_layer, layer, data_format='channels_first'):
     concate = my_concat([up, layer])
 
     return concate
-
-
 
 
 
@@ -96,24 +92,25 @@ def rec_res_block(input_layer, out_n_filters, batch_normalization=False, kernel_
     out_layer = add([layer, skip_layer])
     return out_layer
 
+
 ########################################################################################################
 # Define the neural network
 def unet(img_w, img_h, n_label, data_format='channels_first'):
-    inputs = Input(( img_w, img_h,1))#(4, 4, 484)
+    inputs = Input((img_w, img_h, 1))  # (4, 4, 484)
     x = inputs
     depth = 2
-    features = 64
+    features = 32
     skips = []
     for i in range(depth):
-        x = Conv2D(features, (3, 3),  activation='relu', padding='same', data_format=data_format)(x)
-        #width=((W-F+2*P )/S)+1
+        x = Conv2D(features, (3, 3), activation='relu', padding='same', data_format=data_format)(x)
+        # width=((W-F+2*P )/S)+1
         x = Dropout(0.2)(x)
-        x = Conv2D(features, (3, 3),  activation='relu', padding='same', data_format=data_format)(x)
+        x = Conv2D(features, (3, 3), activation='relu', padding='same', data_format=data_format)(x)
         skips.append(x)
-        x = MaxPooling2D((2, 2), data_format= data_format)(x)
+        x = MaxPooling2D((2, 2), data_format=data_format)(x)
         features = features * 2
 
-    x = Conv2D(features, (3, 3),  activation='relu', padding='same', data_format=data_format)(x)
+    x = Conv2D(features, (3, 3), activation='relu', padding='same', data_format=data_format)(x)
     x = Dropout(0.2)(x)
     x = Conv2D(features, (3, 3), activation='relu', padding='same', data_format=data_format)(x)
 
@@ -131,11 +128,14 @@ def unet(img_w, img_h, n_label, data_format='channels_first'):
     model = Model(inputs=inputs, outputs=conv7)
     model.compile(optimizer=Adam(lr=1e-4),
                   loss='mse')
+    # model.compile(optimizer=Adam(lr=1e-5), loss=[focal_loss()], metrics=['accuracy', dice_coef])
     return model
+
+
 ########################################################################################################
 # Define the residual U-net neural network
 def r_unet(img_w, img_h, n_label, data_format='channels_first'):
-    inputs = Input(( img_w, img_h,1))
+    inputs = Input((img_w, img_h, 1))
     x = inputs
     depth = 2
     features = 32
@@ -143,11 +143,11 @@ def r_unet(img_w, img_h, n_label, data_format='channels_first'):
     for i in range(depth):
         x = res_block(x, features, data_format=data_format)
         skips.append(x)
-       #x = MaxPooling2D((2, 2), data_format=data_format)(x)
+        x = MaxPooling2D((2, 2), data_format=data_format)(x)
 
         features = features * 2
 
-    x = res_block(x, features, data_format=data_format)
+    x = rec_res_block(x, features, data_format=data_format)
 
     for i in reversed(range(depth)):
         features = features // 2
@@ -159,12 +159,17 @@ def r_unet(img_w, img_h, n_label, data_format='channels_first'):
     model = Model(inputs=inputs, outputs=conv7)
     model.compile(optimizer=Adam(lr=1e-4),
                   loss=['mse'])
+    # model.compile(optimizer=keras.optimizers.SGD(lr=0.001,momentum=0.8),loss=Tanimoto_loss,metrics=['accuracy'])
+    # model.compile(optimizer=Adam(lr=1e-6), loss=[dice_coef_loss], metrics=['accuracy', dice_coef])
     return model
 
 
-#Recurrent Residual Convolutional Neural Network based on U-Net (R2U-Net)
+
+
+########################################################################################################
+# Recurrent Residual Convolutional Neural Network based on U-Net (R2U-Net)
 def r2_unet(img_w, img_h, n_label, data_format='channels_first'):
-    inputs = Input(( img_w, img_h,1))
+    inputs = Input((img_w, img_h, 1))
     x = inputs
     depth = 2
     features = 32
@@ -188,5 +193,7 @@ def r2_unet(img_w, img_h, n_label, data_format='channels_first'):
     model = Model(inputs=inputs, outputs=conv7)
     model.compile(optimizer=Adam(lr=1e-4),
                   loss=['mse'])
+    # model.compile(optimizer=keras.optimizers.SGD(lr=0.001,momentum=0.8),loss=Tanimoto_loss,metrics=['accuracy'])
+    # model.compile(optimizer=Adam(lr=1e-6), loss=[dice_coef_loss], metrics=['accuracy', dice_coef])
     return model
 
