@@ -119,9 +119,32 @@ class eval_denoising:
        # print("UQI : ", self.UQI)
         #self.compute_VIF()
         #print("VIF : ", self.VIF)
-        return  self.MAE, self.RMSE, self.SSIM
+        return  self.MAE, self.RMSE
 
 
+def dice_coef(y_true, y_pred):
+    intersec = y_true * y_pred
+    union = y_true + y_pred
+    if intersec.sum() == 0:
+        dice_coef = 0
+    else:
+        dice_coef = round(intersec.sum() * 2 / union.sum(), 2)
+    return dice_coef
+#Jaccard Similarity Index
+def jaccard_coef(y_true, y_pred):
+    intersec = y_true*y_pred
+    union = np.logical_or(y_true, y_pred).astype(int)
+    if intersec.sum() == 0:
+        jac_coef = 0
+    else:
+        jac_coef = round(intersec.sum()/union.sum(), 2)
+    return jac_coef
+def average(lst):
+    total = 0
+    for item in lst:
+        total += item
+    averageGrade = total / len(lst)
+    return averageGrade
 if (__name__ == "__main__"):
     path = "predicted_unwrapped/"
     window_size = 256
@@ -141,6 +164,9 @@ if (__name__ == "__main__"):
     print ('r_unet model_loaded')
     ##############################
 
+    RMSE_arr=[]
+    MSE_arr=[]
+    SSIM=[]
     for i in range(10):#len(test_pair)
         temp = test_pair[i]
         test_img = scipy.io.loadmat(temp[0])['wrap']
@@ -172,17 +198,26 @@ if (__name__ == "__main__"):
        # plt.imshow(runet_wrapped[0], cmap='jet')
         #plt.subplot(124)
         #plt.imshow(mask_x, cmap='jet')
-        plt.show()
+        #plt.show()
         unet_evaluation = eval_denoising(unet_wrapped[0],mask_x)
-        unet_evaluation.all_evaluate()
-        (score, diff) = ssim(unet_wrapped[0],mask_x)
-        print("SSIM : ", score)
+        rmse, mse= unet_evaluation.all_evaluate()
+        RMSE_arr.append (rmse)
+        MSE_arr.append(mse)
+        jaccard= jaccard_coef(unet_wrapped[0],mask_x)
+        print("jaccard_coef : ", jaccard)
+        dice= dice_coef(unet_wrapped[0],mask_x)
+
+        print("dice_coef : ", dice)
+       # (score, diff) = ssim(unet_wrapped[0],mask_x)
+
         #runet_evaluation = eval_denoising(runet_wrapped[0], mask_x)
         #runet_evaluation.all_evaluate()
         #r2unet_evaluation = eval_denoising(r2unet_wrapped[0], mask_x)
         #r2unet_evaluation.all_evaluate()
     ###############################
-
+    #RMSE_arr= np.array(RMSE_arr)
+    #MSE_arr= np.array(MSE_arr)
+    print ("average RMSE : ",average(RMSE_arr),"average MSE : ", average(MSE_arr))
     #runet_model = model.r_unet(window_size, window_size, n_CLASSES, data_format='channels_last')
     #runet_model.summary()
    # runet_model.load_weights('r_unet_weights.h5')
